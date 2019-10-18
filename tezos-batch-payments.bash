@@ -8,7 +8,7 @@ function usage() {
   echo "Usage instructions:"
   echo "bash tezos-batch-payments.bash [options]"
   echo -e "  -h --help\t\tPrint this help info."
-  echo -e "  --fee AMOUNT\tOverride per-transaction fee (default: 1110 µXTZ)."
+  echo -e "  --fee AMOUNT\tOverride per-transaction fee (default: 1792 µXTZ)."
   echo -e "  --transactions\tTransactions to run. E.g. \`ADDR1=AMOUNT1,ADDR2=AMOUNT2,...\`"
   echo -e "  --transactions-file\tPath to a file with one \`ADDR=AMOUNT\` per line."
   echo -e "  --docker NETWORK\tUse this option if you use are using the docker scripts to run your node."
@@ -72,9 +72,9 @@ while [[ $# -gt 0 ]]; do
             "kind": "transaction",
             "amount": $amount,
             "destination": $address,
-            "storage_limit": "0",
-            "gas_limit": "10300",
-            "fee": "1110"
+            "storage_limit": "300",
+            "gas_limit": "15385",
+            "fee": "1792"
           }]'
         )
       done
@@ -376,6 +376,11 @@ function simulateTransactions() {
     error "Unable to retrieve current head." "$head_hash"
   fi
 
+  local chain_id=$($CLIENT_CMD rpc get /chains/main/blocks/head | jq .chain_id)
+  if ! rpcResponseOk "$chain_id" $?; then
+    error "Unable to retrieve current chain_id." "$chain_id"
+  fi
+
   local current_counter=$($CLIENT_CMD rpc get /chains/main/blocks/head/context/contracts/$ACCOUNT_ADDRESS/counter | tr -d '\n\r"')
   if ! rpcResponseOk "$current_counter" $?; then
     error "Unable to retrieve counter for $ACCOUNT_ADDRESS" "$current_counter"
@@ -396,15 +401,17 @@ function simulateTransactions() {
   # this fake signature is the same one tezos-client uses during simulation
   # it must be a valid/decodeable signature, but the actual contents are irrelevant
   local fake_sig="edsigtXomBKi5CTRf5cjATJWSyaRvhfYNHqSUGrn4SdbYRcGwQrUGjzEfQDTuqHhuA8b2d8NarZjz8TRf65WkpQmo423BtomS8Q"
-  local run_json=$(echo "{}" | jq \
+local run_json=$(echo "{}" | jq \
     --compact-output \
     --argjson head $head_hash \
     --argjson transactions "$transactions" \
     --arg signature "$fake_sig" \
-    '. + {
+    --arg chain_id "$chain_id" \
+    '. + {operation:{
       branch: $head,
       contents: $transactions,
-      signature: $signature
+      signature: $signature},
+      chain_id: $chain_id
     }'
   )
   log "Simulation run JSON: $run_json"
@@ -416,12 +423,11 @@ function simulateTransactions() {
   else
     run_response=$(cleanCr "$run_response")
     log "Results from simulation run: $run_response"
-    bash -c "echo '$run_response' | jq -e '.contents | map(select(.metadata.operation_result.status == \"failed\")) | length == 0' > /dev/null 2>&1"
-    if [ ! $? -eq 0 ]; then
-      error "Transaction simulation failed. Cannot continue!" "$run_response"
-    else
-      echo "OK"
-    fi
+    if [[ $run_response == *"failed"* ]]; then
+          error "Transaction simulation failed. Cannot continue!" "$run_response"
+        else
+          echo "OK"
+        fi
   fi
 }
 
