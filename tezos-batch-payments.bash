@@ -406,7 +406,7 @@ local run_json=$(echo "{}" | jq \
     --argjson head $head_hash \
     --argjson transactions "$transactions" \
     --arg signature "$fake_sig" \
-    --arg chain_id "$chain_id" \
+    --argjson chain_id "$chain_id" \
     '. + {operation:{
       branch: $head,
       contents: $transactions,
