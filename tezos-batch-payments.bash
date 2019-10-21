@@ -72,7 +72,7 @@ while [[ $# -gt 0 ]]; do
             "kind": "transaction",
             "amount": $amount,
             "destination": $address,
-            "storage_limit": "300",
+            "storage_limit": "0",
             "gas_limit": "15385",
             "fee": "1792"
           }]'
@@ -618,7 +618,7 @@ function main() {
   ### the maximum operation size is 16k
   ###
 
-  PAGE_SIZE=100
+  PAGE_SIZE=200
   CURRENT_OFFSET=0
   TRANSACTION_COUNT=$(echo -n "$TRANSACTIONS" | jq length)
   TOTAL_PAGES=$(pageNumber $TRANSACTION_COUNT $PAGE_SIZE)
